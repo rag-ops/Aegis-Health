@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Aegis Health — Secure AI Portal (Offline)</title>
+
+<style>
+  /* Minimal font stack to keep file fully self-contained (no external fonts) */
+  :root{
+    --bg-1:#071228;
+    --bg-2:#0b1a2b;
+    --accent:#00d4ff;
+    --accent-2:#00ffc8;
+    --glass: rgba(255,255,255,0.06);
+    --muted:#bfcbd6;
+    --danger: #ff5050;
+    --success: #00ffc8;
+    --card-z: 1;
+  }
+  *{box-sizing:border-box;font-family: Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;margin:0;padding:0;color:#eef2f6;}
+  html,body{height:100%;background:linear-gradient(180deg,var(--bg-1),var(--bg-2));display:flex;justify-content:center;align-items:center;padding:1rem;overflow-x:hidden;position: relative;}
+
+  /* background pulse */
+  @keyframes backgroundPulse {0% { transform: scale(1.02); opacity: 0.1; }100% { transform: scale(1.00); opacity: 0.3; }}
+  body::before {content: ''; position: fixed; inset: -50px; background: radial-gradient(circle at 50% 50%, rgba(0, 212, 255, 0.15) 0%, transparent 40%); z-index: 0; pointer-events: none; animation: backgroundPulse 15s infinite alternate ease-in-out;}
+
+  canvas#particles{position:fixed;inset:0;z-index:0;pointer-events:none;filter:blur(0.6px) contrast(1.05)}
+  .vignette{position:fixed;inset:0;box-shadow:inset 0 200px 200px rgba(2,8,23,0.6);z-index:0;pointer-events:none}
+
+  @keyframes fadeInCyber {0% { opacity: 0; transform: translateY(30px) scale(0.98); filter: blur(10px); }80% { opacity: 1; transform: translateY(-5px) scale(1.005); filter: blur(2px); }100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }}
+  @keyframes cardBreathe {from { box-shadow: 0 0 25px rgba(0,0,0,0.3), 0 0 5px rgba(0,212,255,0.1); } to { box-shadow: 0 0 40px rgba(0,0,0,0.5), 0 0 12px rgba(0,212,255,0.4); }}
+  @keyframes glitch {0% { transform: translate(0); clip-path: inset(0); opacity: 1; filter: saturate(1); }10% { transform: translate(-2px, 2px); clip-path: inset(10px 0 0 0); filter: saturate(1.5); }30% { transform: translate(-3px, 3px); clip-path: inset(0 0 0 10px); filter: saturate(1.8); }50% { transform: translate(-1px, -1px); clip-path: inset(0 0 5px 0); filter: saturate(1.3); }100% { transform: translate(0); clip-path: inset(0); opacity: 0; filter: saturate(1); }}
+
+  .wrap{position:relative;z-index:1;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem; width: 100%;}
+  .card{width:400px; max-width:92vw; background:var(--glass); border-radius:16px; padding:1.75rem; box-shadow:0 8px 30px rgba(3,10,20,0.6), 0 2px 6px rgba(0,0,0,0.6); backdrop-filter: blur(10px) saturate(120%); border:1px solid rgba(0,212,255,0.08); position:relative; overflow:hidden; transform-origin:center; animation:cardPop 700ms cubic-bezier(.2,.9,.3,1); transition: all 0.5s ease-in-out;}
+  @keyframes cardPop{from{opacity:0; transform:translateY(10px) scale(.98)} to{opacity:1; transform:translateY(0) scale(1)}}
+  .card.exit-glitch { animation: glitch 0.6s steps(10, end) forwards; }
+
+  .brand{display:flex;align-items:center;gap:.6rem;margin-bottom:0.6rem}
+  .logo{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;color:#012;font-weight:700;box-shadow:0 6px 18px rgba(0,212,255,0.07);}
+  .logo svg { color: #012; width: 24px; height: 24px; }
+
+  .card h1{font-size:1.05rem;margin:0;color:var(--accent);letter-spacing:.6px}
+
+  .heartbeat-wrap{position:absolute; inset:auto 0 -20px 0; height:150px; display:flex;align-items:flex-end;justify-content:center;pointer-events:none;opacity:.35; overflow: hidden;}
+  svg.heartbeat{width:100%;max-width:600px;height:150px;overflow:visible}
+  #ecg { stroke-dasharray: 800; stroke-dashoffset: 0; animation: none; }
+
+  form{Display:flex;flex-direction:column;gap:.7rem}
+  label{font-size:.78rem;color:var(--muted);display:block;margin-bottom:.28rem}
+  input[type="text"], input[type="password"], #user-input, textarea{width:100%;padding:.72rem .8rem;border-radius:10px;border:none;outline:none;font-size:.95rem;color:#04202a;background:linear-gradient(180deg, #eef7f9, #e1f2f6);box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);transition: box-shadow 0.3s ease;}
+  input[type="text"]:focus, input[type="password"]:focus, #user-input:focus, textarea:focus { box-shadow: 0 0 10px rgba(0, 212, 255, 0.8), inset 0 1px 0 rgba(255,255,255,0.6); }
+  input::placeholder{color:#7c8c94}
+  .actions{display:flex;gap:.6rem;align-items:center;justify-content:space-between;margin-top:.4rem}
+  .btn{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#012;padding:.68rem .9rem;border-radius:10px;border:none;font-weight:600;cursor:pointer;box-shadow:0 8px 18px rgba(0,212,255,0.08);transition:transform .18s ease, box-shadow .18s ease;display:inline-flex;align-items:center;gap:8px;}
+  .btn:hover{ transform: translateY(-1px); box-shadow: 0 10px 22px rgba(0,212,255,0.2);}
+  .btn:active{transform:translateY(1px)}
+  .btn:disabled{opacity:.6; cursor: not-allowed;}
+  .btn.secondary{background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.04); transition: border-color 0.3s, color 0.3s;}
+  .btn.secondary:hover{border-color: var(--accent); color: var(--accent);}
+  .hint{font-size:.78rem;color:var(--muted)}
+  .error{color:#ff9b9b;font-size:.82rem;margin-top:.3rem;min-height:1.1rem}
+
+  .overlay{position:absolute;inset:0;background:linear-gradient(180deg, rgba(1,18,26,0.6), rgba(1,18,26,0.85));display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.8rem;padding:1.2rem;backdrop-filter: blur(4px);opacity:0;pointer-events:none;transition:opacity .25s ease;}
+  .overlay.show{opacity:1;pointer-events:auto}
+  .scan-bar{width:220px;height:10px;border-radius:999px;background:rgba(255,255,255,0.06);overflow:hidden; position: relative;}
+  .scan-bar::after { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 15px; background: rgba(255, 255, 255, 0.4); transform: translateX(-15px); animation: scan-light 1.8s infinite linear; }
+  @keyframes scan-light { 0% { transform: translateX(-15px); } 100% { transform: translateX(220px); } }
+  .scan-progress{height:100%;width:0;background:linear-gradient(90deg,var(--accent-2),var(--accent));transition:width .25s linear; z-index: 2; position: relative;}
+  .status{color:#dff8ff;font-size:.9rem}
+  .success-badge{display:flex;align-items:center;gap:.6rem;background:rgba(0,255,188,0.09);padding:.5rem 0.8rem;border-radius:999px;color:var(--accent-2);font-weight:600; text-shadow: 0 0 5px rgba(0,255,188,0.5);}
+  .footer{font-size:.75rem;color:var(--muted);text-align:center;margin-top:1rem}
+  .mouse-hint{position:absolute;left:12px;bottom:12px;font-size:.72rem;color:rgba(255,255,255,0.35)}
+
+  /* === DASHBOARD === */
+  .container{display:none;flex-direction:column;align-items:center;gap:2rem;width:100%;max-width:1100px;padding:2rem 1rem;min-height:100vh;opacity:0;position:relative; z-index:1;}
+  .container h1{font-size:2rem;text-align:center;color:#00d4ff;letter-spacing:1px; margin-bottom: 0.5rem; text-shadow: 0 0 8px rgba(0,212,255,0.3);}
+
+  nav{display:flex;justify-content:center;flex-wrap:wrap;gap:1rem;}
+  nav button{background:rgba(0,212,255,0.2);border:1px solid rgba(0,212,255,0.4);border-radius:10px;padding:0.6rem 1.2rem;cursor:pointer;transition:all 0.3s, box-shadow 0.3s;}
+  nav button:hover{background:rgba(0,212,255,0.6); transform:scale(1.05); box-shadow: 0 0 20px var(--accent-2);}
+
+  .app-card{width:100%;max-width:700px;background:var(--glass);border-radius:15px;backdrop-filter:blur(10px);padding:1.5rem;box-shadow:0 0 25px rgba(0,0,0,0.3);border: 1px solid rgba(255,255,255,0.08);display:none;flex-direction:column;gap:1rem;opacity:0;transform:scale(0.97);transition:opacity 0.5s ease, transform 0.5s ease, box-shadow 0.5s ease; position:relative; z-index: var(--card-z);}
+  .app-card.active{display:flex; opacity:1; transform:scale(1); animation: cardBreathe 3s infinite alternate ease-in-out;}
+  .app-card h2 { margin-bottom: 0.5rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem; }
+
+  .card-controls { display:flex; gap:0.5rem; align-items:center; }
+
+  /* CHATBOT */
+  #chat-box{height:350px;min-height: 200px;max-height: 60vh;overflow-y:auto;background:rgba(0,0,0,0.2);padding:1rem;border-radius:10px;display:flex;flex-direction:column;gap:0.5rem;scroll-behavior:smooth;flex-grow: 1;}
+  .user, .bot {padding:0.5rem 1rem;border-radius:10px;max-width:90%; word-wrap:break-word; font-size: 0.95rem; position:relative; overflow:hidden;}
+  .user{background:rgba(0,212,255,0.4);align-self:flex-end; text-align: right; border-bottom-right-radius: 0;}
+  .bot{background:rgba(27,154,170,0.4);align-self:flex-start;text-align:left; border-bottom-left-radius: 0;}
+  .bot-text-content { white-space: pre-wrap; }
+
+  .source-container { padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.2); font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem; display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  .source-container .source-link { color: var(--accent-2); text-decoration: none; margin-right: 0.5rem; display: inline-flex; align-items: center; gap: 6px; transition: color 0.2s; padding:4px 6px; background: rgba(255,255,255,0.02); border-radius:6px; }
+  .source-container .source-link:hover { color: var(--accent); background: rgba(255,255,255,0.03); }
+
+  .loading-dots { display: inline-flex; align-items: center; height: 14px; width: 30px; position: relative; top: -1px; margin-left: 5px; }
+  .loading-dots span { width: 5px; height: 5px; background-color: #fff; border-radius: 50%; display: inline-block; margin: 0 1px; animation: dot 1s infinite; }
+  .loading-dots span:nth-child(2) { animation-delay: 0.2s; } .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dot{0%,20%{transform:scale(0.5); opacity:0.5;}50%{transform:scale(1); opacity:1;}100%{transform:scale(0.5); opacity:0.5;}}
+
+  #chat-input-container{display:flex;gap:0.5rem;margin-top:0.5rem;}
+  #send-btn{padding:0.7rem 1rem;background:var(--accent);border:none;border-radius:10px;cursor:pointer;font-weight:bold;color:#000;transition:all 0.2s;}
+  #send-btn:hover{background:var(--accent-2); transform:scale(1.03);}
+
+  textarea{resize:none;}
+  #pharma-actions { display: flex; gap: 0.5rem; }
+  #pharma-actions button { flex-grow: 1; padding: .72rem 1rem; border-radius: 10px; font-weight: 600; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease; }
+  #scan-btn{ background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#012; box-shadow:0 8px 18px rgba(0,212,255,0.08); border: none; }
+  #scan-btn:hover{ background:linear-gradient(90deg,var(--accent-2),var(--accent)); transform:scale(1.01); }
+  #clear-btn { background: transparent; color: var(--muted); border: 1px solid rgba(255,255,255,0.15); }
+  #clear-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+  #result{ background:rgba(27,154,170,0.6); padding:1rem; border-radius:10px; min-height:40px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; }
+  .result-loading{ background:rgba(27,154,170,0.2); color: #00d4ff; font-weight: 600; text-align: center; }
+  .result-error{ background:rgba(255,80,80,0.4); color: #fff; font-weight: 600; text-align: center; }
+
+  /* notification system */
+  #notification-container { position: fixed; top: 20px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
+  .notification { background: rgba(0,0,0,0.7); padding: 1rem 1.2rem; border-radius: 10px; color: white; box-shadow: 0 5px 15px rgba(0,0,0,0.4); min-width: 250px; max-width: 350px; opacity: 0; transform: translateX(100%); transition: opacity 0.3s ease, transform 0.3s ease; display: flex; align-items: center; gap: 10px; font-size: 0.9rem; border-left: 5px solid; }
+  .notification.show { opacity: 1; transform: translateX(0); }
+  .notification.error { border-left-color: var(--danger); }
+  .notification.info { border-left-color: var(--accent); }
+  .notification.success { border-left-color: var(--success); }
+  .notification .icon { width:20px;height:20px;display:inline-block;flex:0 0 20px; }
+
+  /* Chat history panel */
+  #history-panel { position: fixed; left: 20px; top: 80px; width: 320px; max-width: calc(90vw); max-height: 70vh; overflow:auto; background: rgba(0,0,0,0.35); border-radius: 12px; padding: 0.7rem; z-index: 1200; border: 1px solid rgba(255,255,255,0.06); backdrop-filter: blur(6px); box-shadow: 0 6px 30px rgba(0,0,0,0.6); display:none;flex-direction:column;gap:0.6rem; transition: transform .22s ease, opacity .22s ease; transform-origin:left top; }
+  #history-panel.open { display:flex; transform: translateY(0); opacity:1; }
+  #history-panel.hiding { transform: translateY(-6px); opacity:0; }
+
+  #history-panel h3 { margin:0; font-size:0.95rem; color:var(--accent); display:flex; justify-content:space-between; align-items:center; gap:0.4rem; }
+  .history-item { background: rgba(255,255,255,0.03); padding:0.6rem; border-radius:8px; display:flex; justify-content:space-between; gap:0.5rem; align-items:center; cursor:pointer; border:1px solid rgba(255,255,255,0.02); }
+  .history-item:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0,0,0,0.4); }
+  .history-meta { font-size:0.78rem; color:var(--muted); }
+  .history-actions { display:flex; gap:0.4rem; align-items:center; }
+
+  .fullscreen-overlay { position:fixed; inset:0; background: rgba(2,8,20,0.5); z-index: 2000; display:none; align-items:center; justify-content:center; }
+  .fullscreen-overlay.show { display:flex; }
+
+  /* fullscreen style applied to card */
+  .is-fullscreen { position:fixed !important; top: 2vh !important; left: 2vw !important; width: 96vw !important; height: 96vh !important; max-width: none !important; max-height: none !important; border-radius: 12px !important; padding: 1.2rem !important; overflow: auto !important; z-index: 2500 !important; }
+
+  /* responsive */
+  @media (max-width: 900px) {
+    .container { padding: 1rem 0.5rem; }
+    .app-card { padding: 1rem; width: 100%; max-width: 100%; }
+    .wrap { padding: 0.5rem; }
+    .card { padding: 1.2rem; width: 100%; }
+    .actions { flex-direction: column; gap: 0.4rem; }
+    .btn { width: 100%; }
+    #chat-box { height: 55vh; }
+    #history-panel { left: 10px; top: 70px; width: calc(100vw - 20px); max-height: 40vh; }
+  }
+  @media (max-width: 420px) {
+    .brand .hint{display:none}
+    .logo{width:40px;height:40px}
+    .card{padding:1rem}
+  }
+
+  /* small util */
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  a.no-deco{color:inherit;text-decoration:none}
+</style>
+</head>
+<body>
+
+<div id="notification-container" aria-live="polite"></div>
+
+<canvas id="particles" aria-hidden="true"></canvas>
+<div class="vignette" aria-hidden="true"></div>
+
+<div class="wrap" id="login-screen-wrap" role="main">
+  <div class="card" aria-labelledby="login-title">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <!-- inline SVG logo -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="24" height="24" aria-hidden="true">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="#012"/>
+        </svg>
+      </div>
+      <div>
+        <h1 id="login-title">Aegis Health</h1>
+        <div class="hint">Your AI-powered wellbeing companion</div>
+      </div>
+    </div>
+
+    <form id="login-form" onsubmit="return false;" aria-describedby="form-help">
+      <div>
+        <label for="username">Username</label>
+        <input id="username" type="text" placeholder="e.g. email" autocomplete="username" />
+      </div>
+      <div>
+        <label for="password">Password</label>
+        <input id="password" type="password" placeholder="Enter your secure password" autocomplete="current-password" />
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="login-btn" type="button" aria-live="polite">→ Secure Login</button>
+        <button class="btn secondary" id="help-btn" type="button">Help</button>
+      </div>
+
+      <div class="error" id="error-msg" role="alert" aria-atomic="true"></div>
+    </form>
+
+    <div class="overlay" id="overlay" aria-hidden="true">
+      <div class="status" id="status-text">Verifying credentials...</div>
+      <div class="scan-bar" aria-hidden="true"><div class="scan-progress" id="scan-progress"></div></div>
+      <div class="success-badge" id="success-badge" style="display:none">✓ Access Granted</div>
+    </div>
+
+    <div class="heartbeat-wrap" aria-hidden="true">
+      <svg class="heartbeat" viewBox="0 0 800 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <defs><linearGradient id="g1" x1="0%" x2="100%"><stop offset="0%" stop-color="#00ffc8"/><stop offset="100%" stop-color="#00d4ff"/></linearGradient></defs>
+        <path id="ecg" d="M0,60 L60,60 L80,35 L100,85 L140,60 L220,60 L260,40 L300,60 L360,60 L420,20 L460,60 L520,60 L580,60 L640,40 L700,60 L800,60" stroke="url(#g1)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.95"/>
+      </svg>
+    </div>
+
+    <div class="footer">Protected by Aegis Health • Thales GenTech Hackathon 2025</div>
+    <div class="mouse-hint">Tip: Press Enter to login</div>
+  </div>
+</div>
+
+<div id="dashboard" class="container" aria-hidden="true">
+  <h1>AI Medical Portal</h1>
+  <nav>
+    <button onclick="App.showSection('chatbot')">💬 AI Health Chatbot</button>
+    <button onclick="App.showSection('pharmascan')">💊 Pharma-Scan</button>
+  </nav>
+
+  <div id="chatbot" class="app-card active" aria-live="polite">
+    <h2>
+      <span>AI Health Assistant</span>
+      <span class="card-controls">
+        <button class="btn secondary" id="fs-chatbtn" title="Toggle Fullscreen" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 21h4a2 2 0 0 0 2-2v-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 3L14 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 21l7-7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button class="btn secondary" id="his-toggle-btn" title="Open Chat History" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 8v5l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </span>
+    </h2>
+
+    <div id="chat-box" role="log" aria-atomic="false"></div>
+
+    <div id="chat-input-container">
+      <input type="text" id="user-input" placeholder="Ask about symptoms, wellness, or conditions...">
+      <button id="send-btn" class="btn" onclick="App.Chatbot.sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <div id="pharmascan" class="app-card" aria-live="polite">
+    <h2>
+      <span>Pharma-Scan</span>
+      <span class="card-controls">
+        <button class="btn secondary" id="fs-pharmabtn" title="Toggle Fullscreen" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 21h4a2 2 0 0 0 2-2v-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 3L14 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 21l7-7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </span>
+    </h2>
+
+    <p>Enter a list of medicine ingredients, supplements, or drug names to check for safety/interactions:</p>
+    <textarea id="medicine-input" placeholder="e.g. Paracetamol, Ibuprofen, St. John's Wort"></textarea>
+
+    <div id="pharma-actions">
+        <button id="scan-btn" class="btn" onclick="App.PharmaScan.checkMedicine()">Run Safety Check</button>
+        <button id="clear-btn" class="btn secondary" onclick="App.PharmaScan.clearInput()">Clear Input</button>
+    </div>
+    <div id="result">Result will appear here...</div>
+  </div>
+</div>
+
+<!-- Chat History Panel (persistent) -->
+<div id="history-panel" aria-hidden="true" >
+  <h3>Chat History <span style="font-size:0.82rem;color:var(--muted)">• Saved</span>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <button class="btn secondary" id="export-history" title="Export all history">Export</button>
+      <button class="btn secondary" id="clear-history" title="Clear all saved history">Clear</button>
+      <button class="btn secondary" id="close-history" title="Close">Close</button>
+    </div>
+  </h3>
+  <div id="history-list" style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.5rem;"></div>
+  <div style="font-size:0.8rem;color:var(--muted);margin-top:0.5rem;">Tip: Click an item to restore that conversation to the chat window.</div>
+</div>
+
+<div class="fullscreen-overlay" id="fs-overlay" aria-hidden="true"></div>
+
+<script>
+/* === Keep original API constants (left blank for offline use) === */
+const API_KEY = "";
+const API_URL = "";
+
+/* chat history key */
+const CHAT_HISTORY_KEY = 'aegis_chat_history_v2';
+
+/* === Lightweight helper: inline SVGs for small icons used in notifications and links === */
+function svgLinkIcon() {
+  return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:middle"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+function svgInfoIcon(){ return '<svg class=\"icon\" viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\"><path d=\"M12 8h.01\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M11 12h1v4h1\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M21 12A9 9 0 1 1 3 12 9 9 0 0 1 21 12z\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>'; }
+function svgSuccessIcon(){ return '<svg class=\"icon\" viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\"><path d=\"M20 6L9 17l-5-5\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>'; }
+function svgErrorIcon(){ return '<svg class=\"icon\" viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\"><path d=\"M12 9v4\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12 17h.01\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M21 12A9 9 0 1 1 3 12 9 9 0 0 1 21 12z\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>'; }
+
+/* === Notifications (robust, uses inline SVG) === */
+const Notifier = {
+    container: document.getElementById('notification-container'),
+    show: function(message, type = 'info', duration = 3800) {
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        let icon = svgInfoIcon();
+        if (type === 'error') icon = svgErrorIcon();
+        if (type === 'success') icon = svgSuccessIcon();
+        notification.innerHTML = `<span class="icon" aria-hidden="true">${icon}</span><div style="flex:1">${message}</div>`;
+        this.container.appendChild(notification);
+        requestAnimationFrame(()=>notification.classList.add('show'));
+        const timeoutId = setTimeout(() => {
+            notification.classList.remove('show');
+            notification.addEventListener('transitionend', () => notification.remove(), { once: true });
+        }, duration);
+        notification.addEventListener('click', () => {
+            clearTimeout(timeoutId);
+            notification.classList.remove('show');
+            notification.addEventListener('transitionend', () => notification.remove(), { once: true });
+        });
+    }
+};
+
+/* === renderSources - now uses safe inline icons and truncation === */
+function renderSources(sources) {
+    if (!sources || sources.length === 0) return '';
+    const parts = sources.map((s, i) => {
+        const title = s.title ? (s.title.length > 48 ? s.title.slice(0,45)+'...' : s.title) : (s.uri || 'Source');
+        const uri = s.uri || '#';
+        return `<a class="source-link" href="${uri}" target="_blank" rel="noopener noreferrer">${svgLinkIcon()}${title}</a>`;
+    });
+    return `<div class="source-container">${parts.join('')}</div>`;
+}
+
+/* === Login Module (kept behavior) === */
+const Login = {
+    card: document.querySelector('#login-screen-wrap .card'),
+    btn: document.getElementById('login-btn'),
+    helpBtn: document.getElementById('help-btn'),
+    userInput: document.getElementById('username'),
+    passInput: document.getElementById('password'),
+    errorMsg: document.getElementById('error-msg'),
+    overlay: document.getElementById('overlay'),
+    scanProgress: document.getElementById('scan-progress'),
+    statusText: document.getElementById('status-text'),
+    successBadge: document.getElementById('success-badge'),
+    wrap: document.getElementById('login-screen-wrap'),
+
+    showOverlay: function(text) {
+        this.statusText.textContent = text || 'Verifying credentials...';
+        this.overlay.classList.add('show');
+        this.overlay.setAttribute('aria-hidden', 'false');
+        this.scanProgress.style.width = '0%';
+        this.successBadge.style.display = 'none';
+    },
+
+    attempt: function() {
+        const u = this.userInput.value.trim();
+        const p = this.passInput.value.trim();
+        this.errorMsg.textContent = '';
+        if (!u || !p) {
+            this.errorMsg.textContent = 'Please enter both username and password.';
+            Notifier.show('Login failed. Missing credentials.', 'error');
+            return;
+        }
+        this.btn.disabled = true;
+        this.btn.textContent = '...';
+        this.simulateAuth();
+    },
+
+    simulateAuth: function() {
+        this.showOverlay('Verifying credentials...');
+        let p = 0;
+        const timer = setInterval(() => {
+            p += 6 + Math.random() * 10;
+            if (p > 100) p = 100;
+            this.scanProgress.style.width = p + '%';
+            if (p < 40) this.statusText.textContent = 'Checking encryption layer...';
+            else if (p < 75) this.statusText.textContent = 'Assessing health tokens...';
+            else if (p < 98) this.statusText.textContent = 'Finalising secure session...';
+            if (p >= 100) {
+                clearInterval(timer);
+                this.statusText.textContent = 'Access granted';
+                this.successBadge.style.display = 'flex';
+                this.successBadge.animate([{transform:'scale(.96)'},{transform:'scale(1)'}],{duration:420,iterations:1,easing:'ease-out'});
+                setTimeout(() => App.handleLoginSuccess({username: this.userInput.value}), 700);
+            }
+        }, 180);
+
+        setTimeout(() => { this.btn.disabled = false; this.btn.textContent = '→ Secure Login'; }, 2400);
+    },
+
+    init: function() {
+        this.userInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') this.attempt(); });
+        this.passInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') this.attempt(); });
+        this.btn.addEventListener('click', () => this.attempt());
+        this.helpBtn.addEventListener('click', () => { Notifier.show('Contact your system administrator for password or access issues.', 'info'); });
+        setTimeout(() => this.userInput.focus(), 200);
+    }
+};
+
+/* === Chatbot Module (improved history handling & robust rendering) === */
+const Chatbot = {
+    chatBox: document.getElementById('chat-box'),
+    userInput: document.getElementById('user-input'),
+    sendBtn: document.getElementById('send-btn'),
+    history: [],
+
+    loadHistory: function() {
+        try {
+            const savedHistory = localStorage.getItem(CHAT_HISTORY_KEY);
+            this.history = savedHistory ? JSON.parse(savedHistory) : [];
+        } catch (e) {
+            console.error("Could not load chat history from local storage.", e);
+            this.history = [];
+        }
+    },
+
+    saveHistory: function() {
+        try { localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(this.history)); }
+        catch (e) { console.error("Could not save chat history to local storage.", e); }
+        HistoryPanel.refresh(); // update history panel when saved
+    },
+
+    renderHistory: function() {
+        this.chatBox.innerHTML = '';
+        if (this.history.length === 0) {
+            this.chatBox.innerHTML = `<div class='bot'>
+                <div class='bot-text-content'>
+                    Hello! I am your Aegis Health Assistant. I can provide general health information, but please consult a licensed medical professional for diagnoses or treatment. What can I help you search for today?
+                </div>
+            </div>`;
+            return;
+        }
+
+        this.history.forEach(message => {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = message.role;
+            // Use pre-escaped text for safety; messages originating internally are trusted
+            msgDiv.innerHTML = `<div class='${message.role}-text-content'>${message.text}</div>${renderSources(message.sources)}`;
+            this.chatBox.appendChild(msgDiv);
+        });
+        this.chatBox.scrollTop = this.chatBox.scrollHeight;
+    },
+
+    sendMessage: async function() {
+        const msg = this.userInput.value.trim();
+        if (!msg) return;
+        this.sendBtn.disabled = true;
+        // Add user message to UI and history
+        const userText = `You: ${escapeHTML(msg)}`;
+        this.history.push({ role: 'user', text: userText, sources: [], ts: Date.now() });
+        this.renderHistory();
+        this.userInput.value = '';
+        this.saveHistory();
+
+        // Add loading bot message
+        const botDiv = document.createElement('div');
+        botDiv.className = 'bot';
+        botDiv.innerHTML = `<div class='bot-text-content'>Bot: Thinking<div class="loading-dots"><span></span><span></span><span></span></div></div>`;
+        this.chatBox.appendChild(botDiv);
+        this.chatBox.scrollTop = this.chatBox.scrollHeight;
+
+        // Offline placeholder response (since API keys are blank in offline file)
+        setTimeout(() => {
+            const generatedText = "This is an offline demo response. In the deployed version the assistant would call a generative API. Remember to consult a licensed medical professional for diagnoses or treatment.";
+            botDiv.innerHTML = `<div class='bot-text-content'>Bot: ${escapeHTML(generatedText)}</div>`;
+            this.history.push({ role: 'bot', text: `Bot: ${generatedText}`, sources: [], ts: Date.now() });
+            this.saveHistory();
+            this.sendBtn.disabled = false;
+            this.chatBox.scrollTop = this.chatBox.scrollHeight;
+        }, 800);
+    },
+
+    init: function() {
+        this.loadHistory();
+        this.renderHistory();
+        this.userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); this.sendMessage(); } });
+    }
+};
+
+/* === PharmaScan Module (keeps offline behavior) === */
+const PharmaScan = {
+    input: document.getElementById('medicine-input'),
+    scanBtn: document.getElementById('scan-btn'),
+    resultDiv: document.getElementById('result'),
+
+    clearInput: function() {
+        this.input.value = '';
+        this.resultDiv.innerHTML = 'Result will appear here...';
+        Notifier.show('Pharma-Scan input cleared.', 'info');
+    },
+
+    checkMedicine: async function() {
+        const ingredients = this.input.value.trim();
+        if (!ingredients) {
+            this.resultDiv.innerText = 'Please enter ingredients to scan.';
+            Notifier.show('Please enter ingredients to scan.', 'info');
+            return;
+        }
+        this.scanBtn.disabled = true;
+        this.resultDiv.className = 'result-loading';
+        this.resultDiv.innerHTML = 'Analyzing ingredients and interactions...<div class="loading-dots"><span></span><span></span><span></span></div>';
+
+        // Offline placeholder
+        setTimeout(() => {
+            this.resultDiv.className = '';
+            this.resultDiv.innerHTML = `<div class="bot-text-content"><strong>Offline Demo:</strong> This demo page can't perform live checks. Paste this content into an online deployment with API keys to enable real analysis.</div>`;
+            this.scanBtn.disabled = false;
+        }, 900);
+    }
+};
+
+/* === History Panel Implementation (fixed toggle behavior) === */
+const HistoryPanel = {
+    el: document.getElementById('history-panel'),
+    listEl: document.getElementById('history-list'),
+    exportBtn: document.getElementById('export-history'),
+    clearBtn: document.getElementById('clear-history'),
+    closeBtn: document.getElementById('close-history'),
+    toggleBtn: document.getElementById('his-toggle-btn'),
+    open: false,
+    toggle: function(force) {
+        // force: true = open, false = close, undefined = toggle
+        if (typeof force === 'boolean') {
+            this.open = force;
+        } else {
+            this.open = !this.open;
+        }
+        if (this.open) {
+            this.el.classList.add('open');
+            this.el.classList.remove('hiding');
+            this.el.setAttribute('aria-hidden', 'false');
+            this.toggleBtn.setAttribute('aria-expanded','true');
+            // refresh content each open
+            this.refresh();
+            // add a small listener to close on outside click (only when open)
+            setTimeout(()=> {
+                window.addEventListener('click', this._outsideHandler = (e)=> {
+                    if (!this.el.contains(e.target) && e.target !== this.toggleBtn) this.toggle(false);
+                });
+            }, 10);
+        } else {
+            this.el.classList.add('hiding');
+            this.el.setAttribute('aria-hidden', 'true');
+            this.toggleBtn.setAttribute('aria-expanded','false');
+            // remove outside click listener
+            if (this._outsideHandler) {
+                window.removeEventListener('click', this._outsideHandler);
+                this._outsideHandler = null;
+            }
+            // small timeout to allow hide animation then fully remove open class
+            setTimeout(()=> { this.el.classList.remove('open'); this.el.classList.remove('hiding'); }, 220);
+        }
+    },
+
+    refresh: function() {
+        this.listEl.innerHTML = '';
+        const h = Chatbot.history || [];
+        if (h.length === 0) {
+            this.listEl.innerHTML = `<div style="color:var(--muted);font-size:0.9rem;">No saved messages yet.</div>`;
+            return;
+        }
+        // group into sessions (user+bot)
+        const sessions = [];
+        let session = [];
+        h.forEach(item => {
+            session.push(item);
+            if (item.role === 'bot') { sessions.push(session); session = []; }
+        });
+        if (session.length) sessions.push(session);
+        // show newest first
+        sessions.reverse().forEach((sess, idx) => {
+            const first = sess.find(s => s.role === 'user') || sess[0];
+            const ts = first?.ts ? new Date(first.ts).toLocaleString() : 'Saved';
+            const summary = (first && first.text) ? String(first.text).slice(0,80).replace(/^You:\s*/i,'') : 'Conversation';
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.innerHTML = `<div style="flex:1;">
+                                <div style="font-weight:600;color:#eafcff">${escapeHTML(summary)}</div>
+                                <div class="history-meta">${ts}</div>
+                             </div>
+                             <div class="history-actions">
+                                <button class="btn secondary" title="Restore" data-idx="${idx}">Restore</button>
+                             </div>`;
+            div.querySelector('button').addEventListener('click', (e) => {
+                const realIdx = sessions.length - 1 - Number(e.target.dataset.idx);
+                HistoryPanel.restoreSession(sessions[realIdx]);
+            });
+            this.listEl.appendChild(div);
+        });
+    },
+
+    restoreSession: function(sess) {
+        if (!Array.isArray(sess)) return;
+        Chatbot.history = Chatbot.history.concat(sess);
+        Chatbot.saveHistory();
+        Chatbot.renderHistory();
+        Notifier.show('Session restored into chat box.', 'success');
+        this.toggle(false);
+    },
+
+    exportAll: function() {
+        const data = localStorage.getItem(CHAT_HISTORY_KEY) || '[]';
+        const blob = new Blob([data], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `aegis_chat_history_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        Notifier.show('Chat history exported.', 'success');
+    },
+
+    clearAll: function() {
+        if (!confirm('Clear all saved chat history? This cannot be undone.')) return;
+        localStorage.removeItem(CHAT_HISTORY_KEY);
+        Chatbot.history = [];
+        Chatbot.renderHistory();
+        this.refresh();
+        Notifier.show('Chat history cleared.', 'info');
+    }
+};
+
+HistoryPanel.exportBtn?.addEventListener('click', ()=>HistoryPanel.exportAll());
+HistoryPanel.clearBtn?.addEventListener('click', ()=>HistoryPanel.clearAll());
+HistoryPanel.closeBtn?.addEventListener('click', ()=>HistoryPanel.toggle(false));
+HistoryPanel.toggleBtn?.addEventListener('click', ()=>HistoryPanel.toggle());
+
+/* === App Core + Fullscreen handling (improved) === */
+const App = {
+    dashboard: document.getElementById('dashboard'),
+    Login: Login,
+    Chatbot: Chatbot,
+    PharmaScan: PharmaScan,
+
+    showSection: function(id){
+        document.querySelectorAll('.app-card').forEach(c=>{
+            c.classList.remove('active');
+            c.style.animation = 'none';
+        });
+        const activeCard = document.getElementById(id);
+        if (!activeCard) return;
+        activeCard.classList.add('active');
+        activeCard.style.animation = 'cardBreathe 3s infinite alternate ease-in-out';
+        if(id === 'chatbot') {
+            this.Chatbot.chatBox.scrollTop = this.Chatbot.chatBox.scrollHeight;
+            this.Chatbot.userInput.focus();
+        }
+    },
+
+    handleLoginSuccess: function(authData) {
+        this.Login.card.classList.add('exit-glitch');
+        setTimeout(()=>{
+            this.Login.overlay.classList.remove('show');
+            this.Login.overlay.setAttribute('aria-hidden', 'true');
+            Notifier.show(`Welcome back, ${authData.username.split('@')[0]}!`, 'success');
+        }, 500);
+
+        setTimeout(() => {
+            this.Login.wrap.style.display = 'none';
+            this.dashboard.style.display = 'flex';
+            this.dashboard.style.opacity = 0;
+            this.dashboard.style.animation = 'fadeInCyber 1.2s cubic-bezier(0.2, 0.9, 0.3, 1) forwards';
+            this.dashboard.setAttribute('aria-hidden', 'false');
+            HistoryPanel.refresh();
+        }, 1000);
+    },
+
+    init: function() {
+        this.Login.init();
+        this.Chatbot.init();
+        // keyboard ESC to exit any fullscreen
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') this.exitFullScreenAll();
+            if (e.key === '/' && document.activeElement !== document.getElementById('user-input')) {
+                e.preventDefault();
+                document.getElementById('user-input').focus();
+            }
+        });
+
+        // attach fullscreen buttons
+        document.getElementById('fs-chatbtn')?.addEventListener('click', ()=> this.toggleFullScreen('chatbot'));
+        document.getElementById('fs-pharmabtn')?.addEventListener('click', ()=> this.toggleFullScreen('pharmascan'));
+
+        // ensure history panel is accessible on load
+        HistoryPanel.refresh();
+
+        // ensure fullscreen adapts on resize
+        window.addEventListener('resize', ()=> {
+            document.querySelectorAll('.is-fullscreen').forEach(c => {
+                // nothing specific required, but keep scroll in view
+                c.style.maxHeight = (window.innerHeight * 0.96) + 'px';
+            });
+        });
+    },
+
+    toggleFullScreen: function(cardId) {
+        const card = document.getElementById(cardId);
+        const overlay = document.getElementById('fs-overlay');
+        if (!card) return;
+        const isFS = card.classList.contains('is-fullscreen');
+
+        // close any other fullscreen first
+        this.exitFullScreenAll();
+
+        if (!isFS) {
+            card.classList.add('is-fullscreen');
+            overlay.classList.add('show');
+            overlay.setAttribute('aria-hidden', 'false');
+            overlay.addEventListener('click', ()=> this.exitFullScreenAll(), { once: true });
+            // focus input if chat
+            if (cardId === 'chatbot') {
+                setTimeout(()=> this.Chatbot.userInput.focus(), 120);
+            }
+            // adjust height to fit nicely
+            card.style.maxHeight = (window.innerHeight * 0.96) + 'px';
+            // toggle aria-pressed states
+            document.getElementById('fs-chatbtn')?.setAttribute('aria-pressed', cardId==='chatbot');
+            document.getElementById('fs-pharmabtn')?.setAttribute('aria-pressed', cardId==='pharmascan');
+        } else {
+            this.exitFullScreenAll();
+        }
+    },
+
+    exitFullScreenAll: function() {
+        document.querySelectorAll('.is-fullscreen').forEach(c => {
+            c.classList.remove('is-fullscreen');
+            c.style.maxHeight = '';
+        });
+        const overlay = document.getElementById('fs-overlay');
+        overlay.classList.remove('show');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.getElementById('fs-chatbtn')?.setAttribute('aria-pressed','false');
+        document.getElementById('fs-pharmabtn')?.setAttribute('aria-pressed','false');
+    }
+};
+
+/* === Particles System (kept, responsive) === */
+const FX = {
+    canvas: document.getElementById('particles'),
+    ctx: null,
+    particles: [],
+    mouse: { x: -9999, y: -9999, radius: 120, active: false },
+    PARTICLE_COUNT: 0,
+    maxConnDistance: 120,
+    frameId: null,
+
+    resize: function() {
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        this.canvas.width = Math.round(window.innerWidth * dpr);
+        this.canvas.height = Math.round(window.innerHeight * dpr);
+        this.canvas.style.width = window.innerWidth + 'px';
+        this.canvas.style.height = window.innerHeight + 'px';
+        if (!this.ctx) this.ctx = this.canvas.getContext('2d');
+        this.ctx.setTransform(dpr,0,0,dpr,0,0);
+
+        const area = window.innerWidth * window.innerHeight;
+        const ideal = Math.min(220, Math.max(30, Math.floor(area / 12000)));
+        if (ideal > this.particles.length) {
+            for (let i = this.particles.length; i < ideal; i++) this.particles.push(this.createParticle());
+        } else {
+            this.particles.splice(ideal);
+        }
+        this.PARTICLE_COUNT = ideal;
+    },
+
+    createParticle: function() {
+        return {
+            x: Math.random() * window.innerWidth,
+            y: Math.random() * window.innerHeight,
+            r: (Math.random() * 1.8) + 0.6,
+            vx: (Math.random() - 0.5) * 0.6,
+            vy: (Math.random() - 0.5) * 0.6,
+            alpha: 0.3 + Math.random() * 0.7,
+            hue: 180 + Math.random() * 60
+        };
+    },
+
+    drawParticles: function() {
+        const ctx = this.ctx;
+        const cw = window.innerWidth;
+        const ch = window.innerHeight;
+        ctx.clearRect(0,0,cw,ch);
+
+        for (let i = 0; i < this.particles.length; i++) {
+            const p1 = this.particles[i];
+            for (let j = i+1; j < this.particles.length; j++) {
+                const p2 = this.particles[j];
+                const dx = p1.x - p2.x;
+                const dy = p1.y - p2.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < this.maxConnDistance) {
+                    const alpha = (1 - dist / this.maxConnDistance) * 0.12 * (p1.alpha + p2.alpha) * 0.9;
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.strokeStyle = `rgba(0,212,255,${alpha})`;
+                    ctx.lineWidth = 0.6;
+                    ctx.stroke();
+                }
+            }
+        }
+
+        for (const p of this.particles) {
+            p.x += p.vx;
+            p.y += p.vy;
+
+            if (p.x < -10) p.x = cw + 10;
+            if (p.x > cw + 10) p.x = -10;
+            if (p.y < -10) p.y = ch + 10;
+            if (p.y > ch + 10) p.y = -10;
+
+            if (this.mouse.active) {
+                const dx = p.x - this.mouse.x;
+                const dy = p.y - this.mouse.y;
+                const d2 = dx*dx + dy*dy;
+                const r = this.mouse.radius;
+                if (d2 < r*r) {
+                    const dist = Math.sqrt(d2) || 1;
+                    const force = (1 - dist / r) * 1.6;
+                    p.vx += (dx / dist) * force * 0.04;
+                    p.vy += (dy / dist) * force * 0.04;
+                } else {
+                    p.vx *= 0.998;
+                    p.vy *= 0.998;
+                }
+            } else {
+                p.vx *= 0.999;
+                p.vy *= 0.999;
+            }
+
+            p.vx = Math.max(Math.min(p.vx, 1.2), -1.2);
+            p.vy = Math.max(Math.min(p.vy, 1.2), -1.2);
+
+            const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, Math.max(8, p.r * 12));
+            g.addColorStop(0, `rgba(0,212,255,${Math.min(0.9, p.alpha)})`);
+            g.addColorStop(0.2, `rgba(0,212,255,${Math.min(0.45, p.alpha*0.6)})`);
+            g.addColorStop(1, 'rgba(0,212,255,0)');
+            ctx.beginPath();
+            ctx.fillStyle = g;
+            ctx.arc(p.x, p.y, p.r * 8, 0, Math.PI*2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.fillStyle = `rgba(255,255,255,${0.06 + p.alpha*0.2})`;
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+        this.frameId = requestAnimationFrame(()=>this.drawParticles());
+    },
+
+    onMove: function(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+        const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+        this.mouse.active = true;
+        this.mouse.x = x;
+        this.mouse.y = y;
+        this.mouse.radius = Math.max(80, Math.min(220, (window.innerWidth / 1280) * 140));
+    },
+
+    onLeave: function() {
+        this.mouse.active = false;
+        this.mouse.x = -9999;
+        this.mouse.y = -9999;
+    },
+
+    init: function() {
+        this.resize();
+        window.addEventListener('resize', ()=>this.resize());
+        window.addEventListener('mousemove', (e)=>this.onMove(e));
+        window.addEventListener('touchmove', (e)=>this.onMove(e), {passive:true});
+        window.addEventListener('mouseleave', ()=>this.onLeave());
+        window.addEventListener('touchend', ()=>this.onLeave());
+        this.drawParticles();
+    },
+
+    destroy: function() {
+        cancelAnimationFrame(this.frameId);
+    }
+};
+
+/* === Utilities === */
+function escapeHTML(str) {
+    if (typeof str !== 'string') return str;
+    return str.replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+}
+
+/* === Initialize everything on window load === */
+window.onload = function() {
+    FX.init();
+    App.init();
+    HistoryPanel.refresh();
+};
+
+/* ensure proper resize for canvas on orientation changes */
+window.addEventListener('orientationchange', ()=> setTimeout(()=>FX.resize(), 320));
+
+/* on page visibility change, pause particle heavy loop to save battery */
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { FX.destroy(); }
+    else { FX.init(); }
+});
+</script>
+</body>
+</html>
